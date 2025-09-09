@@ -1,0 +1,13 @@
+node_modules
+.next
+.turbo
+.vercel
+.env*
+*.log
+.DS_Store
+coverage
+dist
+*.local
+.idea
+.vscode/*
+!/.vscode/extensions.json
