@@ -24,6 +24,37 @@ fi
 
 echo "✅ Node.js $(node -v) detected"
 
+# Check for .env.local and HELIUS_API_KEY
+echo "🔐 Checking environment configuration..."
+if [ ! -f ".env.local" ]; then
+    echo "⚠️  Warning: .env.local file not found."
+    echo "   Creating .env.local from env.example..."
+    if [ -f "env.example" ]; then
+        cp env.example .env.local
+        echo "   Please add your HELIUS_API_KEY to .env.local"
+    else
+        echo "   env.example not found. Please create .env.local with HELIUS_API_KEY"
+    fi
+else
+    # Check if HELIUS_API_KEY is set (but not if it's the example value)
+    if grep -q "HELIUS_API_KEY=" .env.local && ! grep -q "HELIUS_API_KEY=f44999a3" .env.local; then
+        echo "✅ .env.local found with HELIUS_API_KEY configured"
+    else
+        echo "⚠️  Warning: HELIUS_API_KEY not found in .env.local or using example value"
+        echo "   Please add your HELIUS_API_KEY to .env.local before running the app"
+        echo "   Get your API key from: https://www.helius.dev/"
+    fi
+    
+    # Ensure DATABASE_URL is set in .env.local
+    if ! grep -q "DATABASE_URL=" .env.local; then
+        echo "   Adding DATABASE_URL to .env.local..."
+        echo 'DATABASE_URL="file:./prisma/dev.db"' >> .env.local
+        echo "✅ DATABASE_URL added to .env.local"
+    else
+        echo "✅ DATABASE_URL found in .env.local"
+    fi
+fi
+
 # Clean up existing installations
 echo "🧹 Cleaning up existing installations..."
 if [ -d "node_modules" ]; then
@@ -47,6 +78,27 @@ npm install
 
 if [ $? -eq 0 ]; then
     echo "✅ Dependencies installed successfully!"
+    echo ""
+    
+    # Initialize Prisma database
+    echo "🗄️  Initializing Prisma database..."
+    echo "   Generating Prisma Client..."
+    npx prisma generate
+    
+    if [ $? -eq 0 ]; then
+        echo "   ✅ Prisma Client generated"
+        echo "   Pushing database schema..."
+        npx prisma db push --accept-data-loss
+        
+        if [ $? -eq 0 ]; then
+            echo "   ✅ Database schema synced"
+        else
+            echo "   ⚠️  Database push had issues, but continuing..."
+        fi
+    else
+        echo "   ⚠️  Prisma generate had issues, but continuing..."
+    fi
+    
     echo ""
     echo "🎉 Setup complete! Starting development server..."
     echo ""

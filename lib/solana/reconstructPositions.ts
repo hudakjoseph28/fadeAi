@@ -10,6 +10,9 @@ export interface Lot {
   buyQty: number
   buyCostUsd?: number
   remainingQty: number
+  // Whether quantities for this lot are in lamports (SOL) rather than UI units
+  // For SOL, WalletEvent.qty is in lamports; for SPL tokens it's already UI units
+  isSol: boolean
   matchedSells: Array<{
     time: number
     qty: number
@@ -74,12 +77,15 @@ export class PositionReconstructor {
       const peakPotentialUsd = lots.reduce((sum, lot) => sum.plus(lot.peakPotentialUsd), new Decimal(0))
       const regretGapUsd = lots.reduce((sum, lot) => sum.plus(lot.regretGapUsd), new Decimal(0))
       
-      // Calculate open position value
+      // Calculate open position value (convert to UI units before multiplying by price)
       const openLots = lots.filter(lot => lot.remainingQty > 0)
       const currentPrice = currentPrices.get(tokenMint) || 0
-      const openValue = openLots.reduce((sum, lot) => 
-        sum.plus(new Decimal(lot.remainingQty).times(currentPrice)), new Decimal(0)
-      )
+      const openValue = openLots.reduce((sum, lot) => {
+        const qtyUi = lot.isSol
+          ? new Decimal(lot.remainingQty).div(new Decimal(10).pow(SOL_DECIMALS))
+          : new Decimal(lot.remainingQty)
+        return sum.plus(qtyUi.times(currentPrice))
+      }, new Decimal(0))
 
       // Get token symbol from metadata or use fallback
       const symbol = tokenMint === SOL_MINT ? 'SOL' : 
@@ -138,6 +144,7 @@ export class PositionReconstructor {
           buyQty: Math.abs(activity.qty), // qty is positive for BUY
           buyCostUsd: priceAtTx,
           remainingQty: Math.abs(activity.qty),
+          isSol: tokenMint === SOL_MINT,
           matchedSells: [],
           realizedUsd: 0,
           peakTimestamp: null,
@@ -166,7 +173,11 @@ export class PositionReconstructor {
           const sellPrice = sellCandles.length > 0 ? sellCandles[0].c : 0
           
           // Calculate proceeds with fee deduction if applicable
-          let proceedsUsd = matchQty * sellPrice
+          // Convert to UI units for SOL before multiplying by price
+          const matchQtyUi = (tokenMint === SOL_MINT)
+            ? (matchQty / Math.pow(10, SOL_DECIMALS))
+            : matchQty
+          let proceedsUsd = matchQtyUi * sellPrice
           if (activity.feeLamports && activity.feeLamports > 0) {
             // Convert fee from lamports to SOL, then to USD
             const feeInSol = activity.feeLamports / Math.pow(10, SOL_DECIMALS)
@@ -188,7 +199,7 @@ export class PositionReconstructor {
             proceedsUsd: proceedsUsd,
           })
           
-          // Update lot quantities
+          // Update lot quantities (stored in raw units as received)
           lot.remainingQty -= matchQty
           remainingSellQty -= matchQty
           
@@ -249,7 +260,10 @@ export class PositionReconstructor {
         // Still holding - compare current value to peak potential
         const currentPrice = await this.priceService.getCurrentPriceUsd(lot.tokenMint)
         if (currentPrice) {
-          const currentValue = new Decimal(lot.remainingQty).times(currentPrice)
+          const remainingUi = lot.isSol
+            ? new Decimal(lot.remainingQty).div(new Decimal(10).pow(SOL_DECIMALS))
+            : new Decimal(lot.remainingQty)
+          const currentValue = remainingUi.times(currentPrice)
           const totalValue = realizedProceeds.plus(currentValue)
           lot.regretGapUsd = Math.max(0, lot.peakPotentialUsd - totalValue.toNumber())
         } else {

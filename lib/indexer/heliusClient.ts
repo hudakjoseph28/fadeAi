@@ -213,4 +213,79 @@ export class HeliusClient {
     console.log(`Backfill complete: ${allTransactions.length} total transactions`)
     return allTransactions
   }
+
+  /**
+   * Get transactions with a limit for faster response times
+   * This is much faster than fetching all transactions
+   */
+  async getTransactionsWithLimit(wallet: string, limit: number = 1000): Promise<HeliusTransaction[]> {
+    const allTransactions: HeliusTransaction[] = []
+    let before: string | undefined
+
+    console.log(`Fetching up to ${limit} transactions for wallet: ${wallet}`)
+
+    while (allTransactions.length < limit) {
+      try {
+        const response = await this.getParsedTransactions(wallet, before)
+        
+        if (response.items.length === 0) {
+          console.log('No more transactions found')
+          break
+        }
+
+        const remaining = limit - allTransactions.length
+        const toTake = Math.min(remaining, response.items.length)
+        allTransactions.push(...response.items.slice(0, toTake))
+        before = response.nextBefore ?? undefined
+
+        console.log(`Fetched ${response.items.length} transactions, total: ${allTransactions.length}/${limit}`)
+
+        if (allTransactions.length >= limit) {
+          console.log(`Reached transaction limit of ${limit}`)
+          break
+        }
+      } catch (error) {
+        console.error('Error during transaction fetch:', error)
+        throw error
+      }
+    }
+
+    console.log(`Transaction fetch complete: ${allTransactions.length} transactions`)
+    return allTransactions
+  }
+
+  /**
+   * Get historical USD price for a token at a specific slot or timestamp.
+   * 
+   * @param mint - Token mint address
+   * @param slotOrTimestamp - Slot number or Unix timestamp (in seconds)
+   * @returns Historical USD price, or null if not available
+   * 
+   * TODO: Helius Enhanced API may not support historical price lookup directly.
+   * If this method fails or returns null, we should fallback to:
+   * 1. Price service (Birdeye/Dexscreener) historical data
+   * 2. On-chain price oracle data if available
+   * 3. Interpolation from known price points
+   * 4. Use current price as fallback for prototyping
+   */
+  async getHistoricalPrice(mint: string, slotOrTimestamp: number): Promise<number | null> {
+    try {
+      // TODO: Implement Helius historical price lookup
+      // Helius Enhanced API might not have direct historical price endpoints
+      // Check Helius docs for:
+      // - /v0/token-metadata?api-key=...&addresses=... (current prices only)
+      // - Historical price data endpoints (if available)
+      // 
+      // Fallback options:
+      // 1. Use PriceService.getCandles() with timestamp to get historical data
+      // 2. Query Helius DAS API if they provide price history
+      // 3. For now, return null to indicate historical price not available via Helius
+      
+      console.warn(`getHistoricalPrice: Historical price lookup not yet implemented for Helius. Mint: ${mint}, slot/timestamp: ${slotOrTimestamp}`)
+      return null
+    } catch (error) {
+      console.error(`Error fetching historical price for ${mint}:`, error)
+      return null
+    }
+  }
 }

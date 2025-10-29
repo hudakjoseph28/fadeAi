@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { SummaryCards } from '@/components/SummaryCards'
 import { TokenTable } from '@/components/TokenTable'
+import { TransactionList } from '@/components/TransactionList'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, RefreshCw, AlertCircle } from 'lucide-react'
@@ -124,6 +125,16 @@ export default function ResultsPage() {
       </div>
 
       <SummaryCards summary={data.summary} />
+      
+      {data.transactions && data.transactions.length > 0 && (
+        <div className="mb-8">
+          <TransactionList 
+            transactions={data.transactions} 
+            totalTransactions={data.totalTransactions || 0}
+          />
+        </div>
+      )}
+      
       <TokenTable data={data} />
     </div>
   )

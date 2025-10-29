@@ -33,17 +33,28 @@ export class SolscanClient {
   private readonly baseUrl = 'https://public-api.solscan.io'
   private readonly apiToken: string
   private readonly queue: PQueue
+  private readonly enabled: boolean
 
   constructor() {
-    this.apiToken = config.SOLSCAN_API_TOKEN
+    this.apiToken = config.SOLSCAN_API_TOKEN || ''
+    this.enabled = this.apiToken.length > 0
     this.queue = new PQueue({ 
       concurrency: 2,
       interval: 1000,
       intervalCap: 2
     })
+    
+    if (!this.enabled) {
+      console.log('SolscanClient: SOLSCAN_API_TOKEN not provided, Solscan features disabled')
+    }
   }
 
   async getTokenMetadata(tokenMint: string): Promise<TokenMetadata | null> {
+    // Return null immediately if Solscan is not enabled
+    if (!this.enabled) {
+      return null
+    }
+    
     return this.queue.add(async () =>
       pRetry(
         async (): Promise<TokenMetadata | null> => {
@@ -112,6 +123,11 @@ export class SolscanClient {
   }
 
   async getMultipleTokenMetadata(tokenMints: string[]): Promise<Map<string, TokenMetadata>> {
+    // Return empty map if Solscan is not enabled
+    if (!this.enabled) {
+      return new Map<string, TokenMetadata>()
+    }
+    
     const metadataMap = new Map<string, TokenMetadata>()
     
     // Process in batches to avoid overwhelming the API

@@ -9,6 +9,8 @@ interface SummaryCardsProps {
     totalPeakPotentialUsd: number
     totalRegretGapUsd: number
     openPositionsUsd: number
+    totalEstimatedUSD?: number
+    estimatedTxCount?: number
   }
 }
 
@@ -29,6 +31,22 @@ export function SummaryCards({ summary }: SummaryCardsProps) {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      {summary.totalEstimatedUSD !== undefined && (
+        <Card className="border-2 border-purple-200">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Estimated Net USD</CardTitle>
+            <DollarSign className="h-4 w-4 text-purple-600" />
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${summary.totalEstimatedUSD >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {formatCurrency(summary.totalEstimatedUSD)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {summary.estimatedTxCount ? `${summary.estimatedTxCount} transactions` : 'Simple P&L estimate'}
+            </p>
+          </CardContent>
+        </Card>
+      )}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Realized P/L</CardTitle>
